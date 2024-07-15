@@ -118,7 +118,7 @@ spec:
             value: ":8080"
             #TODO: change
           - name: SMTP_ADDRESS
-            value: "smtp:1025"
+            value: "smtp-service:1025"
           envFrom:
             - secretRef:
                 name: balancify-secret
@@ -162,13 +162,15 @@ spec:
           image: docker.fast.ar/bff:latest
           env:
           - name: JWKS_URI
-            value: "http://authorize/certs/jwks"
+            value: "http://authorize-service:8080/certs/jwks"
           - name: UPLOAD_URI
-            value: "http://balancify/upload"
+            value: "http://balancify-service:8080/upload"
           - name: secure
             value: "true"
           - name: PORT
             value: ":8080"
+          - name: ALLOW_ORIGINS
+            value: "https://balancify.fast.ar"
           ports:
             - name: web
               containerPort: 8080
@@ -256,11 +258,12 @@ spec:
         - name: authorize
           image: docker.fast.ar/authorize:latest
           env:
-          #TODO: change
           - name: PORT
             value: ":8080"
           - name: SECURE
             value: "true"
+          - name: PARENT_DOMAIN
+            value: "fast.ar"
           envFrom:
           - secretRef:
               name: authorize-secret

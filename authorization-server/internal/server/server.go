@@ -62,8 +62,9 @@ func Api(app fiber.Router, s service.Oauth, cfg config.Config) {
 			Path:  "/",
 		}
 		if cfg.Secure == "true" {
-			loggedCookie.HTTPOnly = true
+			tokenCookie.Domain = cfg.ParentDomain
 			tokenCookie.Secure = true
+			loggedCookie.Domain = cfg.ParentDomain
 			loggedCookie.Secure = true
 		}
 		c.Cookie(tokenCookie)

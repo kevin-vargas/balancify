@@ -19,6 +19,7 @@ const (
 	kid            = "kid"
 	token_duration = "token_duration"
 	secure         = "secure"
+	parent_domain  = "parent_domain"
 )
 
 type Config struct {
@@ -30,6 +31,7 @@ type Config struct {
 	ClientSecret  string
 	OauthEndpoint oauth2.Endpoint
 	Secure        string
+	ParentDomain  string
 }
 
 func Make() Config {
@@ -39,6 +41,7 @@ func Make() Config {
 		private_key:    Test_rsa_key,
 		client_id:      "",
 		client_secret:  "",
+		parent_domain:  "",
 		oauth_endpoint: endpoints.GitHub,
 		secure:         "false",
 		port:           ":8081",
@@ -58,6 +61,7 @@ func Make() Config {
 		OauthEndpoint: defaults[oauth_endpoint].(oauth2.Endpoint),
 		Secure:        defaults[secure].(string),
 		Port:          defaults[port].(string),
+		ParentDomain:  defaults[parent_domain].(string),
 	}
 }
 
