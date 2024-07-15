@@ -1,0 +1,84 @@
+version: "3"
+services: 
+  balancify:
+    environment:
+      SMTP_ADDRESS: smtp:1025
+      DSN: ${BALANCIFY_DSN:?}
+      secure: "true"
+      PORT: ":80"
+    container_name: balancify
+    build: ./balancify
+    image: balancify-server-fast:latest
+    pull_policy: build
+    networks:
+      - backend
+  bff:
+    environment:
+      JWKS_URI: "http://authorize/certs/jwks"
+      UPLOAD_URI: "http://balancify/upload"
+      secure: "true"
+      PORT: ":80"
+    container_name: bff
+    build: ./bff-server
+    image: bff-server-fast:latest
+    pull_policy: build
+    ports:
+      - "8080:80"
+    networks:
+      - backend
+      - public
+  authorize:
+    environment:
+      PRIVATE_KEY: ${AUTHORIZE_PRIVATE_KEY}
+      CLIENT_ID: ${AUTHORIZE_CLIENT_ID:?}
+      CLIENT_SECRET: ${AUTHORIZE_CLIENT_SECRET:?}
+      PORT: ":80"
+    container_name: authorize
+    build: ./authorization-server
+    image: authorization-server-fast:latest
+    pull_policy: build
+    ports:
+      - "8081:80"
+    networks:
+      - backend
+      - public
+  web-server:
+    environment:
+      VITE_BACKEND_URI: http://bff
+      VITE_AUTHORIZE_URI: https://authorize
+    container_name: web-server
+    build: ./web-server
+    image: web-server-fast:latest
+    pull_policy: build
+    ports:
+      - "80:80"
+    networks:
+      - public
+  db:
+    container_name: db
+    image: mysql:9.0.0
+    restart: always
+    environment: 
+      MYSQL_DATABASE: 'db'
+      MYSQL_USER: 'user'
+      MYSQL_PASSWORD: 'password'
+      MYSQL_ROOT_PASSWORD: 'password'
+    volumes:
+      - "./develop/database:/docker-entrypoint-initdb.d"
+    ports:
+      - '3306:3306'
+    networks:
+      - backend
+  smtp:
+    image: maildev/maildev:2.1.0
+    container_name: smtp
+    ports:
+    - 1080:1080
+    - 1025:1025
+    networks:
+      - backend
+networks:
+  backend:
+    driver: bridge
+  public:
+    driver: bridge

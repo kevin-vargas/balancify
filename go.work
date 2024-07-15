@@ -1,0 +1,11 @@
+go 1.22.2
+
+use ./authorization-server
+
+use ./web-server
+
+use ./bff-server
+
+use ./balancify
+
+use ./uploader

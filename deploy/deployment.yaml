@@ -1,0 +1,436 @@
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: test
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-server
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: web-server
+  template:
+    metadata:
+      labels:
+        app: web-server
+    spec:
+      containers:
+        - name: web-server
+          image: docker.fast.ar/web-server:latest
+          env:
+          - name: PORT
+            value: ":8080"
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: web-server-service
+  namespace: test
+spec:
+  selector:
+    app: web-server
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: web-server
+  namespace: test
+spec:
+  secretName: web-server-fast-ar-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - balancify.fast.ar
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-server-registry-ingress-secure
+  namespace: test
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`balancify.fast.ar`)
+    kind: Rule
+    services:
+    - name: web-server-service
+      port: 8080
+  tls:
+    secretName: web-server-fast-ar-tls
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: web-server-registry-ingress
+  namespace: test
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: Host(`balancify.fast.ar`)
+    kind: Rule
+    services:
+    - name: web-server-service
+      port: 8080
+    middlewares:
+    - name: https-redirect
+---
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: balancify
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: balancify
+  template:
+    metadata:
+      labels:
+        app: balancify
+    spec:
+      containers:
+        - name: web-server
+          image: docker.fast.ar/balancify:latest
+          env:
+          - name: secure
+            value: "true"
+          - name: PORT
+            value: ":8080"
+            #TODO: change
+          - name: SMTP_ADDRESS
+            value: "smtp:1025"
+          envFrom:
+            - secretRef:
+                name: balancify-secret
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: balancify-service
+  namespace: test
+spec:
+  selector:
+    app: balancify
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: bff
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bff
+  template:
+    metadata:
+      labels:
+        app: bff
+    spec:
+      containers:
+        - name: bff
+          image: docker.fast.ar/bff:latest
+          env:
+          - name: JWKS_URI
+            value: "http://authorize/certs/jwks"
+          - name: UPLOAD_URI
+            value: "http://balancify/upload"
+          - name: secure
+            value: "true"
+          - name: PORT
+            value: ":8080"
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: bff-service
+  namespace: test
+spec:
+  selector:
+    app: bff
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: bff
+  namespace: test
+spec:
+  secretName: bff-fast-ar-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - bff.fast.ar
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: bff-registry-ingress-secure
+  namespace: test
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`bff.fast.ar`)
+    kind: Rule
+    services:
+    - name: bff-service
+      port: 8080
+  tls:
+    secretName: bff-fast-ar-tls
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: bff-registry-ingress
+  namespace: test
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: Host(`bff.fast.ar`)
+    kind: Rule
+    services:
+    - name: bff-service
+      port: 8080
+    middlewares:
+    - name: https-redirect
+---
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: authorize
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: authorize
+  template:
+    metadata:
+      labels:
+        app: authorize
+    spec:
+      containers:
+        - name: authorize
+          image: docker.fast.ar/authorize:latest
+          env:
+          #TODO: change
+          - name: PORT
+            value: ":8080"
+          - name: SECURE
+            value: "true"
+          envFrom:
+          - secretRef:
+              name: authorize-secret
+          ports:
+            - name: web
+              containerPort: 8080
+              protocol: TCP
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: authorize-service
+  namespace: test
+spec:
+  selector:
+    app: authorize
+  ports:
+    - port: 8080
+      targetPort: 8080
+  type: LoadBalancer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: authorize
+  namespace: test
+spec:
+  secretName: authorize-fast-ar-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - authorize.fast.ar
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: authorize-registry-ingress-secure
+  namespace: test
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`authorize.fast.ar`)
+    kind: Rule
+    services:
+    - name: authorize-service
+      port: 8080
+  tls:
+    secretName: authorize-fast-ar-tls
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: authorize-registry-ingress
+  namespace: test
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: Host(`authorize.fast.ar`)
+    kind: Rule
+    services:
+    - name: authorize-service
+      port: 8080
+    middlewares:
+    - name: https-redirect
+---
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: smtp
+  namespace: test
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: smtp
+  template:
+    metadata:
+      labels:
+        app: smtp
+    spec:
+      containers:
+        - name: smtp
+          image: maildev/maildev:2.1.0
+          ports:
+            - name: web
+              containerPort: 1080
+              protocol: TCP
+            - name: pro
+              containerPort: 1025
+              protocol: TCP
+      imagePullSecrets:
+        - name: regcred
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: smtp-service
+  namespace: test
+spec:
+  selector:
+    app: smtp
+  ports:
+    - name: web
+      port: 1080
+      targetPort: 1080
+    - name: pro
+      port: 1025
+      targetPort: 1025
+  type: LoadBalancer
+---
+apiVersion: cert-manager.io/v1
+kind: Certificate
+metadata:
+  name: smtp
+  namespace: test
+spec:
+  secretName: smtp-fast-ar-tls
+  issuerRef:
+    name: letsencrypt-prod
+    kind: ClusterIssuer
+  dnsNames:
+  - smtp.fast.ar
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: smtp-registry-ingress-secure
+  namespace: test
+spec:
+  entryPoints:
+    - websecure
+  routes:
+  - match: Host(`smtp.fast.ar`)
+    kind: Rule
+    services:
+    - name: smtp-service
+      port: 1080
+  tls:
+    secretName: smtp-fast-ar-tls
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: IngressRoute
+metadata:
+  name: smtp-registry-ingress
+  namespace: test
+spec:
+  entryPoints:
+    - web
+  routes:
+  - match: Host(`smtp.fast.ar`)
+    kind: Rule
+    services:
+    - name: smtp-service
+      port: 1080
+    middlewares:
+    - name: https-redirect
+---
+---
+apiVersion: traefik.containo.us/v1alpha1
+kind: Middleware
+metadata:
+  name: https-redirect
+  namespace: test
+spec:
+  redirectScheme:
+    scheme: https
+    permanent: true
