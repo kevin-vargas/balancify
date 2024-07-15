@@ -9,7 +9,7 @@ import { PaletteMode } from "@mui/material";
 const key = "mode"
 
 export default () => {
-  const modeLoaded = (localStorage.getItem(key) || 'light' ) as PaletteMode
+  const modeLoaded = (localStorage.getItem(key) || 'dark' ) as PaletteMode
   const [mode, setMode] = useState<PaletteMode>(modeLoaded)
   const switchMode = () => setMode(prev => prev === 'light' ? 'dark' : 'light')
   

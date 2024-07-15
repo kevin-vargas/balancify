@@ -1,10 +1,11 @@
 import { CloudUpload } from "@mui/icons-material";
 import useQueryUser from "../hooks/useQueryUser";
-import {Card, CardMedia, CardContent, Typography, Container,Button} from "@mui/material";
+import {Card, CardMedia, CardContent, Typography, Container,Button, Snackbar, Alert} from "@mui/material";
 import { styled } from '@mui/material/styles';
 import Config from "../config"
 
 import { useState } from "react";
+import Loading from "../components/Loading";
 
 const VisuallyHiddenInput = styled('input')({
   clip: 'rect(0 0 0 0)',
@@ -21,6 +22,9 @@ const VisuallyHiddenInput = styled('input')({
 export default function UploadPage() {
 
   const [file, setFile] = useState<File | null>(null);
+  const [openSuccess, setOpenSuccess] = useState(false);
+  const [openFail, setOpenFail] = useState(false);
+  const [isProgress, setIsProgress] = useState(false);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     if (e.target.files) {
@@ -28,22 +32,47 @@ export default function UploadPage() {
     }
   };
 
+  const handleCloseSucess = (event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setOpenSuccess(false);
+  };
+
+  const handleCloseFail= (event?: React.SyntheticEvent | Event, reason?: string) => {
+    if (reason === 'clickaway') {
+      return;
+    }
+    setOpenFail(false);
+  };
+
+  const handleOnClick = (event: any) => {
+    event.target.value = null
+  };
+
+
   const handleUpload = async () => {
     if (file) {
       const formData = new FormData();
       formData.append("file", file)
       try {
+        setIsProgress(true)
         const result = await fetch(Config.uploadCsvUri, {
           credentials: 'include',
           method: 'POST',
           body: formData,
         });
-
-        const data = await result.json();
-
-        console.log(data);
+        if (result.status == 200) {
+          setOpenSuccess(true)
+        } else {
+          setOpenFail(true)
+        }
       } catch (error) {
         console.error(error);
+        setOpenFail(true)
+      } finally {
+        setIsProgress(false)
+        setFile(null)
       }
     }
   };
@@ -54,7 +83,7 @@ export default function UploadPage() {
 
     return (
       <>
-      {result &&  <Container
+      {!isProgress ? <>{result &&  <Container
         maxWidth="lg"
         sx={{
           display: "flex",
@@ -86,8 +115,8 @@ export default function UploadPage() {
   tabIndex={-1}
   startIcon={<CloudUpload />}
 >
-  Load file
-  <VisuallyHiddenInput type="file" onChange={handleFileChange} />
+  {!!file ? "Change File": "Load file"}
+  <VisuallyHiddenInput accept=".csv" type="file" onChange={handleFileChange} onClick={handleOnClick}/>
 </Button>
 {file && (
         <section>
@@ -99,10 +128,28 @@ export default function UploadPage() {
           </ul>
         </section>
       )}
-{file && <Button variant="contained" onClick={handleUpload}>Upload</Button>}
+{file && <Button variant="contained" onClick={handleUpload}>Upload File</Button>}
       </CardContent>
     </Card>
-    </Container>}
+    <Snackbar anchorOrigin={{vertical: "top", horizontal: "right"}} open={openSuccess} autoHideDuration={5000} onClose={handleCloseSucess}>
+        <Alert
+          onClose={handleCloseSucess}
+          severity="success"
+          sx={{ width: '100%' }}
+        >
+          The CSV file was processed successfully, and the report was sent via email.
+        </Alert>
+      </Snackbar>
+      <Snackbar anchorOrigin={{vertical: "top", horizontal: "right"}} open={openFail} autoHideDuration={5000} onClose={handleCloseFail}>
+        <Alert
+          onClose={handleCloseFail}
+          severity="error"
+          sx={{ width: '100%' }}
+        >
+          Error processing the CSV file, please try again later.
+        </Alert>
+      </Snackbar>
+    </Container>} </>: <Loading />}
       </>
     );
   }
