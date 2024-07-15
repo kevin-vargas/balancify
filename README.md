@@ -1,11 +1,15 @@
-# FAST-RESUME
+# Balancify
 
 The scope of this project is to generate a summary of the transactions defined in a CSV file. This summary is sent via email. To determine the recipient, an OAuth flow with GitHub is used to access its resources. The transactions are persisted in an RDBMS.
 
-<img width="100%" alt="diagram" src="./assets/diagram.png" />
+<div style="text-align: center;">
+    <img width="40%" alt="golang" src="./assets/balancify.png" />
+</div>
 
 
 ## Components
+
+<img width="100%" alt="diagram" src="./assets/diagram.png" />
 
 ### WebServer
 
